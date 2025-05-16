@@ -23,3 +23,7 @@
 
 ```bash
 pip install opencv-python numpy
+
+## キャリブレーションに必要な画像のURL
+各自でダウンロードして何かに張り付け写真撮影を行う
+https://github.com/opencv/opencv/blob/4.x/doc/pattern.png
