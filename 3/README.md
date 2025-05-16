@@ -17,7 +17,7 @@
 ### calibration_result.py
 保存された calibration_result.npz を読み込み、カメラ行列と歪み係数を表示するスクリプトです。
 
-##  実行前の準備
+## 実行前の準備
 
 必要なライブラリを以下のコマンドでインストールしてください：
 
@@ -25,8 +25,7 @@
 pip install opencv-python numpy
 ```
 
-##　実験に必要なチェスボードの画像
-
+## 実験に必要なチェスボードの画像
 画像をダウンロードして何かに張り付けてソースコードを実行してください。
 
 https://github.com/opencv/opencv/blob/4.x/doc/pattern.png
