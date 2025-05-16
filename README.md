@@ -18,7 +18,7 @@
 保存された `calibration_result.npz` を読み込み、カメラ行列と歪み係数を表示するスクリプトです。
 
 ##  実行前の準備
-
+必要なライブラリを以下のコマンドでインストールしてください：
 ```bash
 pip install opencv-python numpy
 ```
@@ -27,5 +27,5 @@ pip install opencv-python numpy
 各自でダウンロードして何かに張り付け写真撮影を行う
 https://github.com/opencv/opencv/blob/4.x/doc/pattern.png
 
-必要なライブラリを以下のコマンドでインストールしてください：
+
 
