@@ -1,62 +1,73 @@
-import cv2
 import numpy as np
+import cv2 as cv
 import glob
 import os
 
-# チェスボードの交点の数（例：9x6の交点 → 10x7のマス）
-chessboard_size = (9, 6)
+# チェスボードのコーナー数（交点）
+CHECKERBOARD = (9, 6)
 
-# チェスボードの3D座標（Z=0の平面上）
-objp = np.zeros((chessboard_size[0]*chessboard_size[1], 3), np.float32)
-objp[:, :2] = np.mgrid[0:chessboard_size[0], 0:chessboard_size[1]].T.reshape(-1, 2)
+# サブピクセル補正の終了条件
+criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-objpoints = []  # 実世界の点
-imgpoints = []  # 画像上の点
+# 3D点： (0,0,0), (1,0,0), ..., (6,5,0)
+objp = np.zeros((CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32)
+objp[:, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 
-# 保存先フォルダ
-image_dir = r"C:\Temp\camera_test"
-images = glob.glob(os.path.join(image_dir, '*.jpg'))
+objpoints = []  # 実世界の座標
+imgpoints = []  # 画像上の座標
+used_images = []  # 補正対象の画像名を保存
 
-print(f"📂 {len(images)} 枚の画像を読み込みました")
+images = glob.glob('*.jpg')
 
-# 各画像ごとにチェスボード検出
 for fname in images:
-    img = cv2.imread(fname)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv.imread(fname)
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-    ret, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+    ret, corners = cv.findChessboardCorners(gray, CHECKERBOARD, None)
 
     if ret:
+        print(f"✓ チェスボード検出成功: {fname}")
         objpoints.append(objp)
-        imgpoints.append(corners)
-        cv2.drawChessboardCorners(img, chessboard_size, corners, ret)
-        cv2.imshow('Detected Corners', img)
-        cv2.waitKey(200)
+        corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        imgpoints.append(corners2)
+        used_images.append(fname)
 
-cv2.destroyAllWindows()
+        # コーナー描画
+        cv.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+        cv.imshow('img', img)
+        cv.waitKey(0)
+        cv.destroyAllWindows()
+    else:
+        print(f"✗ チェスボード検出失敗: {fname}")
 
-# キャリブレーション
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+# キャリブレーションの実行
+if len(objpoints) > 0:
+    ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+    print("🎯 カメラ行列:\n", mtx)
+    print("🎯 歪み係数:\n", dist)
 
-# 結果の表示
-print("🎯 カメラ行列（内部パラメータ）:")
-print(mtx)
-print("\n🎯 歪み係数:")
-print(dist)
+    # 保存ディレクトリ作成
+    os.makedirs("undistorted", exist_ok=True)
 
-# 結果保存
-np.savez(os.path.join(image_dir, "calibration_result.npz"), mtx=mtx, dist=dist)
+for fname in used_images:
+    img = cv.imread(fname)
+    h, w = img.shape[:2]
+    print(f"\n📷 元画像サイズ: {w} x {h} ({fname})")
 
-# 補正例（最初の画像）
-img = cv2.imread(images[0])
-h, w = img.shape[:2]
-newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-dst = cv2.undistort(img, mtx, dist, None, newcameramtx)
+    newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
 
-# 補正後画像を保存
-cv2.imwrite(os.path.join(image_dir, "undistorted_example.jpg"), dst)
+    # 歪み補正（黒枠を含む）
+    dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+    print(f"🔧 補正後（切り抜き前）サイズ: {dst.shape[1]} x {dst.shape[0]}")
 
-cv2.imshow("Original", img)
-cv2.imshow("Undistorted", dst)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    # ROIでトリミング
+    x, y, roi_w, roi_h = roi
+    dst_cropped = dst[y:y+roi_h, x:x+roi_w]
+    print(f"✂️ 補正後（ROIで切り抜き）サイズ: {roi_w} x {roi_h}")
+
+    # 保存
+    save_path = os.path.join("undistorted", f"undistorted_{os.path.basename(fname)}")
+    cv.imwrite(save_path, dst_cropped)
+    print(f"✅ 保存完了: {save_path}")
+else:
+    print("❌ キャリブレーションに使える画像がありません。")
